@@ -1,84 +1,61 @@
 import 'dart:io';
 
-Future<void> runCommand(String executable, List<String> arguments, {String? workingDirectory}) async {
-  final result = await Process.run(
-    executable, 
-    arguments,
-    workingDirectory: workingDirectory,
-  );
-  print(result.stdout);
-  if (result.stderr.toString().isNotEmpty) {
-    print('错误: ${result.stderr}');
-  }
-  if (result.exitCode != 0) {
-    throw '命令执行失败: $executable ${arguments.join(' ')}';
-  }
-}
+import 'package:path/path.dart' as path;
+
+import 'utils.dart';
+
+// 检查 Flutter 命令是否存在
 
 void main() async {
-  try {
-    print('开始重建项目...');
+  // 获取脚本所在目录的路径
+  final rootPath = ScriptUtil.rootPath();
+  // 定义要删除的文件或目录列表
+  List<String> dirs = [
+    "macos",
+    "linux",
+    "windows",
+    "android",
+    "web",
+    "ios",
+    "pubspec.lock",
+    "schedule.iml",
+    ".idea"
+  ];
 
-    // 清理项目
-    print('\n1. 清理项目...');
-    await runCommand('flutter', ['clean']);
-    
-    // 清理 pub 缓存
-    print('\n2. 清理 pub 缓存...');
-    await runCommand('flutter', ['pub', 'cache', 'clean']);
-    
-    // 删除构建文件和缓存
-    print('\n3. 清理构建文件和缓存...');
-    final filesToDelete = [
-      'ios/Pods',
-      'ios/Podfile.lock',
-      'ios/.symlinks',
-      'ios/Flutter/Flutter.podspec',
-      'ios/Flutter/flutter_export_environment.sh',
-      'ios/Flutter/Generated.xcconfig',
-      'ios/Flutter/flutter_assets',
-      'ios/Flutter/App.framework',
-      'ios/Flutter/Flutter.framework',
-      'ios/Runner.xcworkspace',
-      '.dart_tool',
-      'build',
-      'pubspec.lock',
-      '.flutter-plugins',
-      '.flutter-plugins-dependencies',
-      '.packages',
-    ];
-    
-    for (final file in filesToDelete) {
-      if (await Directory(file).exists()) {
-        await Directory(file).delete(recursive: true);
-        print('删除目录: $file');
-      } else if (await File(file).exists()) {
-        await File(file).delete();
-        print('删除文件: $file');
+  // 遍历列表并检查每个项是否存在
+  for (final item in dirs) {
+    var p = path.join(rootPath, item); // 构建完整路径
+    if (Directory(p).existsSync() || File(p).existsSync()) {
+      // 如果文件或目录存在，则删除它
+      try {
+        await Directory(p).delete(recursive: true);
+        print("Deleted file or directory [$item]");
+      } catch (e) {
+        print("Failed to delete [$item]: $e");
       }
+    } else {
+      print("[$item] does not exist, skipping.");
     }
+  }
+  Future<bool> _checkFlutterCommand() async {
+    try {
+      await Process.run('flutter', ['--version'],
+          workingDirectory: rootPath, runInShell: true);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 
-    // 获取依赖
-    print('\n4. 获取 Flutter 依赖...');
-    await runCommand('flutter', ['pub', 'get']);
-
-    // 重新创建 iOS 项目
-    print('\n5. 重新创建 iOS 项目...');
-    await runCommand('flutter', ['create', '.', '--platforms=ios']);
-
-    // 重新安装 Pods
-    print('\n6. 重新安装 Pods...');
-    await runCommand('pod', ['install'], workingDirectory: 'ios');
-
-    // 重新构建项目
-    print('\n7. 重新构建项目...');
-    await runCommand('flutter', ['build', 'ios', '--no-codesign']);
-
-    print('\n✅ 项目重建完成！');
-    print('\n现在可以运行 flutter run 启动项目了。');
-    
-  } catch (e) {
-    print('\n❌ 错误: $e');
-    exit(1);
+  // 检查 Flutter 命令是否存在
+  if (await _checkFlutterCommand()) {
+    // 执行 flutter clean
+    ScriptUtil.runScript('flutter clean', rootPath, null, null);
+    ScriptUtil.runScript('flutter pub get', rootPath, null, null);
+    ScriptUtil.runScript('flutter create .', rootPath, null, null);
+    print("The environment has been rebuilt.");
+  } else {
+    print(
+        "Flutter command not found. Please ensure Flutter is installed and added to PATH.");
   }
 }

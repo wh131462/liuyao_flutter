@@ -29,7 +29,7 @@ void main() async {
 
   print("Current workspace: $rootPath");
   ScriptUtil.runScript(
-      "flutter build apk --release --target-platform=android-arm64", rootPath,
+      "flutter build apk --release", rootPath,
           () async {
         var apkPath = path.join(
             rootPath, 'build', 'app', 'outputs', 'flutter-apk', 'app-release.apk');

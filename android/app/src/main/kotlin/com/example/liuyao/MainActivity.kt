@@ -1,4 +1,4 @@
-package com.eternalheart.liuyao
+package com.example.liuyao
 
 import io.flutter.embedding.android.FlutterActivity
 
